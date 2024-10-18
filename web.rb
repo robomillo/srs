@@ -8,7 +8,7 @@ require 'json'
 # returns boolean ok, and parsed JSON
 class DBAPI
   def initialize
-    @db = PG::Connection.new(dbname: 'srs', user: 'srs')
+    @db = PG::Connection.new(dbname: 'srs', user: 'srs', password: 'srs', host: 'localhost', port: 5432)
   end
   def a(func, *params)
     qs = '(%s)' % (1..params.size).map {|i| "$#{i}"}.join(',')
