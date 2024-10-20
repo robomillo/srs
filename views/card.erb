@@ -1,5 +1,5 @@
 <style>
-section#back, section#review, section#edit, button#play { display: none }
+section#back, section#morph, section#review, section#edit, button#play { display: none }
 </style>
 
 <!-- because browsers won't auto-play audio/video without interaction first -->
@@ -17,6 +17,42 @@ section#back, section#review, section#edit, button#play { display: none }
   <%= @card[:back] %>
   <%= @card[:html_tags] %>
 </section>
+
+<section id="morph">
+<% if @card[:morph] %>
+  <table>
+    <thead>
+      <tr>
+        <th>Word</th>
+        <th>Type</th>
+        <th>Animacy</th>
+        <th>Case</th>
+        <th>Degree</th>
+        <th>Gender</th>
+        <th>Number</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @card[:morph].each do |word, details| %>
+        <tr>
+          <td><%= word %></td>
+          <td><%= details[:type] %></td>
+          <% if details[:morph].is_a?(Hash) %>
+            <td><%= details[:morph][:Animacy] %></td>
+            <td><%= details[:morph][:Case] %></td>
+            <td><%= details[:morph][:Degree] %></td>
+            <td><%= details[:morph][:Gender] %></td>
+            <td><%= details[:morph][:Number] %></td>
+          <% else %>
+            <td colspan="5">No morph data</td>
+          <% end %>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
+</section>
+
 
 <section id="review">
 <form action="/card/<%= @card[:id] %>/review" method="post">
@@ -106,6 +142,7 @@ document.getElementById('flip').addEventListener('click', function() {
   document.getElementById('play').removeEventListener('click', focusflip);
   document.getElementById('reveal').style.display = 'none';
   document.getElementById('back').style.display = 'block';
+  document.getElementById('morph').style.display = 'block';
   document.getElementById('review').style.display = 'block';
   /* listen for 1 2 3 4 r to trigger buttons */
   document.addEventListener('keydown', function(event) {
