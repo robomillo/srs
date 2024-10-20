@@ -8,6 +8,7 @@ services:
       POSTGRES_USER: srs
       POSTGRES_PASSWORD: srs
       POSTGRES_DB: srs
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_destination=stderr"]
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
