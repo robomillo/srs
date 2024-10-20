@@ -25,15 +25,15 @@ $$ language plpgsql;
 -- add a new card. deck name is whatever you want, new or existing
 -- front and back are HTML, so if if you need < & >, escape it yourself
 --| {id int} || {error}
-create function srs.add(_deck text, _front text, _back text,
+create function srs.add(_deck text, _front text, _back text, _morph text,
 	out ok boolean, out js json) as $$
 declare
 	err text;
 begin
 	ok = true;
 	with nu as (
-		insert into cards (deck, front, back)
-		values ($1, $2, $3)
+		insert into cards (deck, front, back, morph)
+		values ($1, $2, $3, $4)
 		returning id
 	) select row_to_json(nu.*) into js from nu;
 exception
@@ -70,13 +70,13 @@ $$ language plpgsql;
 
 -- edit a card's deck, front, or back content
 --| {} || {error}
-create function srs.edit(_id integer, _deck text, _front text, _back text,
+create function srs.edit(_id integer, _deck text, _front text, _back text, morph text,
 	out ok boolean, out js json) as $$
 declare
 	err text;
 begin
 	update cards
-	set deck = $2, front = $3, back = $4
+	set deck = $2, front = $3, back = $4, morph = $5
 	where id = $1;
 	ok = true;
 	js = '{}';

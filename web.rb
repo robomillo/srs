@@ -1,6 +1,45 @@
 require 'sinatra'
 require 'pg'
 require 'json'
+require 'net/http'
+require 'uri'
+
+
+def  get_morphology(word)
+  encoded_word = URI.encode_www_form_component(word)
+  url = URI.parse("http://localhost:8080/nlp/#{encoded_word}")
+  req = Net::HTTP::Get.new(url)
+  res = Net::HTTP.start(url.host, url.port) do |http|
+    http.request(req)
+  end
+  if res.code == '200'
+    return res.body
+  else
+    nil
+  end
+end
+
+
+def get_pronunciation(word)
+  encoded_word = URI.encode_www_form_component(word)
+
+  url = URI.parse("https://translate.google.com.vn/translate_tts?ie=UTF-8&q=#{encoded_word}&tl=pl&client=tw-ob")
+  req = Net::HTTP::Get.new(url.to_s)
+  res = Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
+    http.request(req)
+  end
+
+  if res.code == '200'
+    # Save the audio to a file
+    file_path = "./public/#{word}.mp3"
+    File.open(file_path, 'wb') do |file|
+      file.write(res.body)
+    end
+    file_path
+  else
+    nil
+  end
+end
 
 # SQL query-builder:
 # a('decks') = "select ok, js from srs.decks()"
@@ -28,7 +67,19 @@ get '/' do
 end
 
 post '/' do
-  API.a('add', params[:deck], params[:front], params[:back])
+  deck = params[:deck]
+  front = params[:front]
+  back = params[:back]
+  morph = get_morphology(back)
+
+  pronunciation_file_path = get_pronunciation(back)
+  if pronunciation_file_path
+    back += " <audio src=\"#{back}.mp3\"></audio>"
+  end
+
+
+  API.a('add', deck, front, back, morph)
+
   redirect to('/')
 end
 
@@ -39,7 +90,18 @@ get '/next' do
 end
 
 post '/card/:id/edit' do
-  API.a('edit', params[:id], params[:deck], params[:front], params[:back])
+  front = params[:front]
+  back = params[:back]
+  morph = get_morphology(back)
+
+  if !back.include?('<audio')
+    pronunciation_file_path = get_pronunciation(back)
+    if pronunciation_file_path
+      back += " <audio src=\"#{back}.mp3\"></audio>"
+    end
+  end
+
+  API.a('edit', params[:id], params[:deck], front, back, morph)
   redirect to('/next?deck=%s' % params[:deck])
 end
 
