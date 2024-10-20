@@ -1,44 +1,42 @@
+require 'digest'
 require 'sinatra'
 require 'pg'
 require 'json'
 require 'net/http'
 require 'uri'
 
-
-def  get_morphology(word)
+def get_morphology(word)
   encoded_word = URI.encode_www_form_component(word)
   url = URI.parse("http://localhost:8080/nlp/#{encoded_word}")
   req = Net::HTTP::Get.new(url)
   res = Net::HTTP.start(url.host, url.port) do |http|
     http.request(req)
   end
-  if res.code == '200'
-    return res.body
-  else
-    nil
-  end
+  return res.body if res.code == '200'
+
+  nil
 end
 
+def pg_array(arr)
+  escaped_tags = arr.map do |tag|
+    tag.gsub(/\\/, '\\\\\\').gsub(/"/, '\"')
+  end
 
-def get_pronunciation(word)
-  encoded_word = URI.encode_www_form_component(word)
+  "{#{escaped_tags.map { |tag| "\"#{tag}\"" }.join(',')}}"
+end
 
-  url = URI.parse("https://translate.google.com.vn/translate_tts?ie=UTF-8&q=#{encoded_word}&tl=pl&client=tw-ob")
+def get_pronunciation(word, md5_hash)
+  url = URI.parse("https://translate.google.com.vn/translate_tts?ie=UTF-8&q=#{URI.encode_www_form_component(word)}&tl=pl&client=tw-ob")
   req = Net::HTTP::Get.new(url.to_s)
   res = Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
     http.request(req)
   end
+  return unless res.code == '200'
 
-  if res.code == '200'
-    # Save the audio to a file
-    file_path = "./public/#{word}.mp3"
-    File.open(file_path, 'wb') do |file|
-      file.write(res.body)
-    end
-    file_path
-  else
-    nil
+  File.open("./public/#{md5_hash}.mp3", 'wb') do |file|
+    file.write(res.body)
   end
+  true
 end
 
 # SQL query-builder:
@@ -49,10 +47,12 @@ class DBAPI
   def initialize
     @db = PG::Connection.new(dbname: 'srs', user: 'srs', password: 'srs', host: 'localhost', port: 5432)
   end
+
   def a(func, *params)
-    qs = '(%s)' % (1..params.size).map {|i| "$#{i}"}.join(',')
+    qs = '(%s)' % (1..params.size).map { |i| "$#{i}" }.join(',')
     sql = "select ok, js from srs.#{func}#{qs}"
     r = @db.exec_params(sql, params)[0]
+    puts "Result: #{r.inspect}"
     [
       (r['ok'] == 't'),
       JSON.parse(r['js'], symbolize_names: true)
@@ -62,7 +62,7 @@ end
 API = DBAPI.new
 
 get '/' do
-  ok, @decks = API.a('decks')
+  _, @decks = API.a('decks')
   erb :home
 end
 
@@ -70,15 +70,13 @@ post '/' do
   deck = params[:deck]
   front = params[:front]
   back = params[:back]
+  md5_hash = Digest::MD5.hexdigest(back)
   morph = get_morphology(back)
-
-  pronunciation_file_path = get_pronunciation(back)
-  if pronunciation_file_path
-    back += " <audio src=\"#{back}.mp3\"></audio>"
-  end
-
-
-  API.a('add', deck, front, back, morph)
+  tags = []
+  status = get_pronunciation(back, md5_hash)
+  tags << "<audio src=\"#{md5_hash}.mp3\"></audio>" if status
+  stringy_tags = pg_array(tags)
+  API.a('add', deck, front, back, morph, stringy_tags)
 
   redirect to('/')
 end
@@ -92,21 +90,17 @@ end
 post '/card/:id/edit' do
   front = params[:front]
   back = params[:back]
+  md5_hash = Digest::MD5.hexdigest(back)
   morph = get_morphology(back)
+  tags = []
+  status = get_pronunciation(back, md5_hash)
+  tags << "<audio src=\"#{back}.mp3\"></audio>" if status
 
-  if !back.include?('<audio')
-    pronunciation_file_path = get_pronunciation(back)
-    if pronunciation_file_path
-      back += " <audio src=\"#{back}.mp3\"></audio>"
-    end
-  end
-
-  API.a('edit', params[:id], params[:deck], front, back, morph)
+  API.a('edit', params[:id], params[:deck], front, back, morph, pg_array(tags))
   redirect to('/next?deck=%s' % params[:deck])
 end
 
 post '/card/:id/review' do
-  ok, c = API.a('review', params[:id], params[:rating])
+  _, c = API.a('review', params[:id], params[:rating])
   redirect to('/next?deck=%s' % c[:deck])
 end
-

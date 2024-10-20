@@ -17,6 +17,8 @@ create table if not exists public.cards (
 	lapses integer not null default 0,  -- times the card was forgotten or remembered incorrectly
 	stability numeric not null default 0,  -- how well the information is retained
 	difficulty numeric not null default 0  -- inherent difficulty of the card content
+	morph json not null default '{}',   -- morphological analysis of the card content
+	html_tags text[],                -- html tags for card content
 );
 create index cardeck on cards(deck);
 create index cardue on cards(due);
