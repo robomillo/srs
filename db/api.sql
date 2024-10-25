@@ -44,6 +44,22 @@ end;
 $$ language plpgsql;
 
 
+create function srs.delete(_id integer, _deck text, 
+	out ok boolean, out js json) as $$
+declare
+	err text;
+begin
+	delete from cards where id = $1 and deck = $2;
+	ok = true;
+	js = '{}';
+exception
+	when others then get stacked diagnostics err = message_text;
+	js = json_build_object('error', err);
+	ok = false;
+end;
+$$ language plpgsql;
+
+
 
 -- get next card due in this deck, or ok=false if none due
 --| {id int, deck, front, back} || {error}

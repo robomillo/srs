@@ -7,7 +7,7 @@ require 'uri'
 
 def get_morphology(word)
   encoded_word = URI.encode_www_form_component(word)
-  url = URI.parse("http://localhost:8080/nlp/#{encoded_word}")
+  url = URI.parse("http://fastapi:8080/nlp/#{encoded_word}")
   req = Net::HTTP::Get.new(url)
   res = Net::HTTP.start(url.host, url.port) do |http|
     http.request(req)
@@ -45,7 +45,8 @@ end
 # returns boolean ok, and parsed JSON
 class DBAPI
   def initialize
-    @db = PG::Connection.new(dbname: 'srs', user: 'srs', password: 'srs', host: 'localhost', port: 5432)
+    @db = PG::Connection.new(dbname: 'srs', user: 'srs', password: 'srs',
+                             host: 'postgres', port: 5432)
   end
 
   def a(func, *params)
@@ -94,13 +95,18 @@ post '/card/:id/edit' do
   morph = get_morphology(back)
   tags = []
   status = get_pronunciation(back, md5_hash)
-  tags << "<audio src=\"#{back}.mp3\"></audio>" if status
+  tags << "<audio src=\"#{md5_hash}.mp3\"></audio>" if status
 
   API.a('edit', params[:id], params[:deck], front, back, morph, pg_array(tags))
-  redirect to('/next?deck=%s' % params[:deck])
+  redirect to("/next?deck=#{params[:deck]}")
 end
 
 post '/card/:id/review' do
   _, c = API.a('review', params[:id], params[:rating])
-  redirect to('/next?deck=%s' % c[:deck])
+  redirect to("/next?deck=#{c[:deck]}")
+end
+
+delete '/card/:id' do
+  API.a('delete', params[:id], params[:deck])
+  redirect to("/next?deck=#{params[:deck]}")
 end

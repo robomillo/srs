@@ -77,6 +77,12 @@ section#back, section#morph, section#review, section#edit, button#play { display
   </label>
   <input type="submit" value="update">
 </form>
+  <form action="/card/<%= @card[:id] %>" method="post" onsubmit="return confirm('Are you sure you want to delete this card?');">
+    <!-- Simulate DELETE request -->
+    <input type="hidden" name="_method" value="delete">
+    <input type="hidden" name="deck" value="<%= @card[:deck] %>">
+    <input type="submit" value="Delete" style="background-color: red; color: white;">
+  </form>
 </section>
 
 <script>
